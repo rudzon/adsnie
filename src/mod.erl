@@ -15,7 +15,7 @@
 %%
 %% API Functions
 %%
-test()-> 3.
+test()-> reconf:reconf().
 
 
 %%

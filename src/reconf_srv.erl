@@ -4,7 +4,7 @@
 %%%
 %%% Created : 9 квіт. 2012
 %%% -------------------------------------------------------------------
--module(conf_srv).
+-module(reconf_srv).
 
 -behaviour(gen_server).
 %% --------------------------------------------------------------------
@@ -13,7 +13,7 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/0, neibs/0, name/0, add_neib/1, rem_neib/1, amount/0]).
+-export([find_friend/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -24,18 +24,7 @@
 %% External functions
 %% ====================================================================
 
-amount() -> gen_server:call(conf_srv, amount).
-
-neibs() -> gen_server:call(conf_srv, get_neibs).
-
-name() -> gen_server:call(conf_srv, get_name).
-
-add_neib(Neib) -> gen_server:cast(conf_srv, {add_neib, Neib}).
-
-rem_neib(Neib) -> gen_server:cast(conf_srv, {rem_neib, Neib}).
-
-start_link() ->
-   gen_server:start_link({local, conf_srv}, conf_srv, [], []).
+find_friend(Name, Ttl) -> gen_server:cast(reconf_srv, {find_friend, Name, Ttl}).
 
 %% ====================================================================
 %% Server functions
@@ -50,9 +39,7 @@ start_link() ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([]) ->
-	Name = {"vasya", node()},
-	Neibs = [],
-    {ok, {Name, Neibs}}.
+    {ok, #state{}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -64,18 +51,9 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call(get_neibs, _From, {_Name, Neibs} = State) ->
-    Reply = Neibs,
-    {reply, Reply, State};
-
-handle_call(amount, _From, {_Name, Neibs} = State) ->
-	Amount = length(Neibs),
-	{reply, Amount, State};
-
-handle_call(get_name, _From, {Name, _Neibs} = State) ->
-    Reply = Name,
+handle_call(Request, From, State) ->
+    Reply = ok,
     {reply, Reply, State}.
-
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
@@ -84,12 +62,15 @@ handle_call(get_name, _From, {Name, _Neibs} = State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast({add_neib, Naib}, {_Name, Neibs} = _State) ->
-    {noreply, {_Name, [Naib|Neibs]}};
-
-handle_cast({rem_neib, Neib}, {_Name, Neibs} = _State) ->
-    NewNeibs = lists:delete(Neib, Neibs),
-	{noreply, {_Name, NewNeibs}}.
+handle_cast({find_friend, Name, Ttl}, State) ->
+	Amount = conf_srv:amount(),
+	if Amount < 5 ->
+		dialog:request_friendship(conf_srv:name())
+	end,
+	if Ttl > 0 ->
+		   lists:foreach(fun (Neib) -> dialog:find_friend(Name, Ttl-1, Neib), conf_srv:neibs() end)
+	end.
+		   
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
